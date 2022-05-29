@@ -106,6 +106,9 @@
     }
 
     loadingBar.style.display = "block";
+    window.reCaptcha = function () {
+      console.log('recaptcha ran');
+    }
 
     var script = document.createElement("script");
     script.src = loaderUrl;
