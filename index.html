@@ -136,7 +136,21 @@
             //alert("Ok");
             window.unityInstance.SendMessage("SIO", "GetIsOnMobile", "true");
           }
-
+          const monCollection = {
+            0: [
+              { "name": "Chulember", "classId": 10, "qunatity": 2 },
+              { "name": "Elekitt", "classId": 224, "qunatity": 2 },
+              { "name": "Hambrisk", "classId": 227, "quantity": 2 },
+              { "name": "Snobbit", "classId": 235, "qunatity": 2 },
+              { "name": "Kyari", "classId": 27, "qunatity": 2 }],
+            1: [
+              { "name": "Chulember", "classId": 10, "qunatity": 2 },
+              { "name": "Elekitt", "classId": 224, "qunatity": 2 },
+              { "name": "Hambrisk", "classId": 227, "quantity": 2 },
+              { "name": "Snobbit", "classId": 235, "qunatity": 2 },
+              { "name": "Kyari", "classId": 27, "qunatity": 2 }]
+          }
+          window.unityInstance.SendMessage("SIO", "MonsSelection", JSON.stringify(monCollection));
           window.unityInstance.SendMessage("SIO", "Login", JSON.stringify(obj));
         }, 5000);
       }).catch((message) => {
