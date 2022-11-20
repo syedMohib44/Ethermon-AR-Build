@@ -86,7 +86,7 @@
         var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
         var createScene = function () {
             var scene = new BABYLON.Scene(engine);
-            scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./models/environment.dds", scene);
+            scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./models/oscar_trophy.glb", scene);
 
             var camera = new BABYLON.UniversalCamera("camera1", new BABYLON.Vector3(0, 0, 0), scene);
 
