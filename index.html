@@ -1,117 +1,228 @@
-<!-- BEGIN: Top HTML -->
 <!DOCTYPE html>
-<!-- include aframe -->
-<script src="https://aframe.io/releases/0.8.2/aframe.min.js"></script>
-<!-- include ar.js -->
-<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <link rel="shortcut icon" href="#" />
+        <title>Babylon.js WebAR SDK</title>
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,shrink-to-fit=no,user-scalable=no,viewport-fit=cover">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="theme-color" content="black">
 
-<!-- to load .ply model -->
-<script src="https://rawgit.com/donmccurdy/aframe-extras/v6.0.0/dist/aframe-extras.loaders.min.js"></script>
+        <!-- Babylon.js -->
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
-<!-- END: Top HTML -->
-<!-- BEGIN: Unity Compiled Events -->
-<script>
-var markerFound = 0;
-AFRAME.registerComponent('button', {
-init: function () {
-var elem = document.documentElement;
-var marker = document.querySelector("#marker");
-var fullbutton = document.querySelector("#fullscreen");
-marker.addEventListener("markerFound", function (evt) {
-markerFound = 1;
-});
-marker.addEventListener("markerLost", function (evt) {
-markerFound = 0;
-});
+        <!-- WebAR SDK -->
+        <!-- PS: User may overload the splash screen by passing function string to on-load parameter
+         e.g. on-load = "LoadMySplash()" -->
 
-        fullbutton.addEventListener("click", function (evt) {
-            if (fullscreen == 0) {
-                if (elem.requestFullscreen) {
-                    elem.requestFullscreen();
-            } else if (elem.mozRequestFullScreen) {
-                    /* Firefox */
-                elem.mozRequestFullScreen();
-            } else if (elem.webkitRequestFullscreen) {
-                    /* Chrome, Safari and Opera */
-                elem.webkitRequestFullscreen();
-            } else if (elem.msRequestFullscreen) {
-                    /* IE/Edge */
-                elem.msRequestFullscreen();
+        <script src="../../webar-sdk/webar-sdk-v1.4.4.min.js?license-key=xxxxxxxx-1111-2222-3333-yyyyyyyyyyyy"
+          on-load=""
+          webar-mode="surface-tracking"
+          auto-init="true"
+          auto-start="true"
+          static-camera="true"
+          rendering-engine="babylonjs"
+          logo-src="./images/test_logo_here.png"
+          logo-width="116px"
+          logo-height="116px"
+          progress-dot-ring-scale="0.30"
+          progress-dot-ring-color="#00AAFF"
+          progress-ring-scale="0.36"
+          progress-ring-color="#00FFFF"
+          progress-ring-line-width="5"
+
+          alert-border-color="#00FFFF"
+          alert-border-width="5px"
+          alert-background-color="#283747"
+          alert-message-text-color="#00AAFF"
+          alert-button-color="#00FFFF"
+          alert-button-text-color="#283747"
+          alert-button-height="50px"
+          alert-camera-permission-text="We need to ask for access to the camera so this experience can work!!!"
+          alert-camera-permission-button-text="No Problem"
+          alert-motion-permission-text="Now we need access to motion sensors!!!"
+          alert-motion-permission-button-text="No Problem"
+          alert-box-width="290px"
+          alert-box-height="182px"
+          alert-box-font-size="24px"
+
+          ui-background-color="#283747"
+          ui-text-color="#00FFFF"
+          ui-portrait-text="This experience is optimised for portrait display only"
+          desktop-logo-src="./images/test_desktop_logo.png"
+          desktop-logo-width="108px"
+          desktop-logo-height="30px"
+          issue-img-src="./images/test_issue_img.png"
+          issue-img-width="116px"
+          issue-img-height="116px"
+          show-guide-view="true"></script>
+
+        <style>
+            #renderCanvas {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100vw;
+              height: 100vh;
+              touch-action: none;
             }
-            fullbutton.setAttribute("src", "../exit_fullscreen.png");
-            fullscreen = 1;
-            } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                        document.webkitExitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                        document.mozCancelFullScreen();
-                } else if (document.msExitFullscreen) {
-                        document.msExitFullscreen();
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var engine = null;
+        var sceneToRender = null;
+        var webarStage = null;
+        var scaleByFactor = function(obj, factor) {
+            obj.scaling.x = obj.scaling.x * factor;
+            obj.scaling.y = obj.scaling.y * factor;
+            obj.scaling.z = obj.scaling.z * factor;
+        }
+
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        var createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+            scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./models/environment.dds", scene);
+
+            var camera = new BABYLON.UniversalCamera("camera1", new BABYLON.Vector3(0, 0, 0), scene);
+
+            var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(5, 10, -2), scene);
+            light.intensity = 0.7;
+
+            // Create an empty webarStage mesh. Models/meshes appended as a children to this webarStage mesh will be displayed on the surface.
+            webarStage = new BABYLON.Mesh("webarStage", scene);
+
+            // Create a time varying PBR material for the base cylinder mesh
+            var pbr = new BABYLON.PBRMaterial("pbr", scene);
+            pbr.metallic = 0.0;
+            pbr.roughness = 0;
+            pbr.subSurface.isRefractionEnabled = true;
+            pbr.subSurface.indexOfRefraction = 1.5;
+            pbr.subSurface.tintColor = new BABYLON.Color3(0.5, 0, 0);
+            var a = 0;
+            scene.beforeRender = () => {
+                a += 0.05;
+                pbr.subSurface.tintColor.g = Math.cos(a) * 0.5 + 0.5;
+                pbr.subSurface.tintColor.b = pbr.subSurface.tintColor.g;
+            }
+
+            // Create primitive shape using mesh builder and set webarStage as its parent so that it appears on the surface
+            var cylinder = BABYLON.MeshBuilder.CreateCylinder("cylinder", {height: 0.5, diameterTop: 1, diameterBottom: 1, tessellation: 128}, scene);
+            cylinder.material = pbr;
+            cylinder.position.y = 0.125;
+            cylinder.position.z = -0.075;
+            cylinder.setParent(webarStage);
+
+            // Start spark and smoke particles
+            startParticles(scene, webarStage);
+
+            // Import a gltf model to the scene and scale appropriately. No need to set the parent to webarStage mesh.
+            // All gltf models imported to the scene are created under __root__ node by babylon.
+            // After the complete scene is ready, it is models under __root_ node are moved to webarStage mesh
+            // to appear on the surface
+            BABYLON.SceneLoader.ImportMesh(['Object_2'], "./models/", "oscar_trophy.glb", scene, function (meshes, particleSystems, skeletons) {
+                let xQuat = new BABYLON.Quaternion();
+                BABYLON.Quaternion.FromEulerAnglesToRef(Math.PI / 2, 0, 0, xQuat);
+
+                for (mesh of meshes) {
+                    if (mesh.name !== '__root__') {
+                        // Move the loaded models to webarStage
+                        mesh.setParent(webarStage);
+                        mesh.rotationQuaternion.multiplyInPlace(xQuat);
+
+                        scaleByFactor(mesh, 0.0375);
+                    }
                 }
-                fullbutton.setAttribute("src", "../fullscreen.png");
-                fullscreen = 0;
+            });
+
+            // Pass babylon canvas, scene, camera and webarStage mesh to WebarSdk to initialize surface tracking
+            WEBARSDK.InitBabylonJs(canvas, scene, camera, webarStage);
+
+            return scene;
+        };
+
+        var sparksystem = null;
+        var smokesystem = null;
+
+        var startParticles = function (scene, fountain) {
+            let sphereSpark = BABYLON.MeshBuilder.CreateSphere("sphereSpark", {diameter: 0.4, segments: 32}, scene);
+            sphereSpark.isVisible = false;
+            sphereSpark.setParent(fountain);
+            BABYLON.ParticleHelper.ParseFromFileAsync(null, "./models/spark_particles.json", scene, false).then(system => {
+                sparksystem = system;
+                system.emitter = sphereSpark;
+            });
+            let sphereSmoke = BABYLON.MeshBuilder.CreateSphere("sphereSmoke", {diameter: 1.9, segments: 32}, scene);
+            sphereSmoke.isVisible = false;
+            sphereSmoke.setParent(fountain);
+            BABYLON.ParticleHelper.ParseFromFileAsync(null, "./models/smoke_particles.json", scene, false).then(system => {
+                smokesystem = system;
+                system.emitter = sphereSmoke;
+            });
+        };
+
+        window.initFunction = async function() {
+            var asyncEngineCreation = async function() {
+                try {
+                    return createDefaultEngine();
+                } catch(e) {
+                console.log("the available createEngine function failed. Creating the default engine instead");
+                    return createDefaultEngine();
+                }
             }
+
+            window.engine = await asyncEngineCreation();
+            if (!engine) throw 'engine should not be null.';
+            window.scene = createScene();
+        };
+
+        initFunction().then(() => {
+            sceneToRender = window.scene;
+            sceneToRender.executeWhenReady(function () {
+                engine.runRenderLoop(function () {
+                    if (sceneToRender && sceneToRender.activeCamera) {
+                        sceneToRender.render();
+                    }
+                });
+            });
         });
-},
-tick: function (totalTime, deltaTime) {
-var dTime = deltaTime / 1000;
 
-if (markerFound == 1) {
-}
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
 
+        WEBARSDK.SetStageReadyCallback(() => {
+            console.info('Stage is ready now!!!');
 
-        function bezierEvaluate(p0, p1, p2, p3, t) {
-            var u = (1 - t);                
-            var uu = u * u;                
-            var uuu = u * u * u;               
-            var tt = t * t;               
-            var ttt = t * t * t;               
-            //B(t) = (1-t)^3*P0 3*(1-t)^2*t*P1 3*(1-t)*t^2*P2 t^3*P3 , 0 < t < 1               
-            return (uuu * p0 + 3 * uu * t * p1 + 3 * u * tt * p2 + ttt * p3);          
-        }          
-        function bezierPath(p0, p1, p2, p3, t) {               
-            return new THREE.Vector3(                   
-                bezierEvaluate(p0.x, p1.x, p2.x, p3.x, t),                   
-                bezierEvaluate(p0.y, p1.y, p2.y, p3.y, t),                   
-                bezierEvaluate(p0.z, p1.z, p2.z, p3.z, t)               
-            );           
-        }     
-    }
-});
-</script>
-<!-- END: Unity Compiled Events -->
+            // Start spark and smoke particles
+            var toggleCounter = 0;
+            setInterval(() => {
+                console.log('Restart spark');
 
-<!-- BEGIN: Middle HTML -->
-<body style='margin : 0px; overflow: hidden; font-family: Monospace;'>
+                if (toggleCounter % 2 === 0) {
+                    if (sparksystem !== null) {
+                        sparksystem.stop();
+                        sparksystem.reset();
+                        sparksystem.start()
+                    }
+                }
+                else {
+                    if (smokesystem !== null) {
+                        smokesystem.stop();
+                        smokesystem.reset();
+                        smokesystem.start();
+                    }
+                }
 
-        <div style='position: absolute; bottom: 5px; left: 30px; width:100%; text-align: right; z-index: 1;'>
-            <input type="image" id="fullscreen" src="../fullscreen.png" style='position: absolute; bottom: 0px; right: 35px;'>
-            </input>
-        </div>
+                ++toggleCounter;
+            },
+            3000);
+        });
 
-        <!-- <a-scene embedded arjs='debugUIEnabled: false; sourceType: video; sourceUrl:../../data/videos/headtracking.mp4;'> -->
-            <a-scene embedded arjs='debugUIEnabled: false; sourceType: webcam' vr-mode-ui='enabled: false'>
-            <a-entity id="mouseCursor" cursor="rayOrigin: mouse" raycaster="objects: .intersectable; useWorldCoordinates: true;"></a-entity>
-<!-- END: Middle HTML -->
-
-<!-- BEGIN: Unity Compiled Assets -->
-<a-assets>
-</a-assets>
-<!-- END: Unity Compiled Assets -->
-<!-- BEGIN: Add Image Target (marker) -->
-<a-marker id="marker" preset="hiro" emitevents="true" button>
-<!-- END: Add Image Target (marker) -->
-
-<!-- BEGIN: Unity Compiled Objects -->
-<a-box width="0.1" height="0.1" depth="0.1" class="intersectable" position="-0.194 0.09 -0.162" rotation="0 0 0" color="#FF0000" 
-></a-box>
-<!-- END: Unity Compiled Objects -->
-
-<!-- BEGIN: Bottom HTML -->
-</a-marker>
-<a-entity camera></a-entity>
-</a-scene>
+    </script>
 </body>
-</html><!-- END: Bottom HTML -->
+</html>
