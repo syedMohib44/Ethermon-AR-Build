@@ -1,228 +1,168 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8"/>
-        <link rel="shortcut icon" href="#" />
-        <title>Babylon.js WebAR SDK</title>
-        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,shrink-to-fit=no,user-scalable=no,viewport-fit=cover">
-        <meta name="mobile-web-app-capable" content="yes">
-        <meta name="theme-color" content="black">
+<html lang="en-us">
 
-        <!-- Babylon.js -->
-        <script src="https://cdn.babylonjs.com/babylon.js"></script>
-        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Unity WebGL Player | ethermon-ar</title>
+  <link rel="shortcut icon" href="TemplateData/favicon.ico">
+  <link rel="stylesheet" href="TemplateData/style.css">
+  <script src="https://cdn.socket.io/4.0.0/socket.io.js"></script>
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
 
-        <!-- WebAR SDK -->
-        <!-- PS: User may overload the splash screen by passing function string to on-load parameter
-         e.g. on-load = "LoadMySplash()" -->
-
-        <script src="./webar-sdk-v1.4.4.min.js?license-key=xxxxxxxx-1111-2222-3333-yyyyyyyyyyyy"
-          on-load=""
-          webar-mode="surface-tracking"
-          auto-init="true"
-          auto-start="true"
-          static-camera="true"
-          rendering-engine="babylonjs"
-          logo-src="./images/test_logo_here.png"
-          logo-width="116px"
-          logo-height="116px"
-          progress-dot-ring-scale="0.30"
-          progress-dot-ring-color="#00AAFF"
-          progress-ring-scale="0.36"
-          progress-ring-color="#00FFFF"
-          progress-ring-line-width="5"
-
-          alert-border-color="#00FFFF"
-          alert-border-width="5px"
-          alert-background-color="#283747"
-          alert-message-text-color="#00AAFF"
-          alert-button-color="#00FFFF"
-          alert-button-text-color="#283747"
-          alert-button-height="50px"
-          alert-camera-permission-text="We need to ask for access to the camera so this experience can work!!!"
-          alert-camera-permission-button-text="No Problem"
-          alert-motion-permission-text="Now we need access to motion sensors!!!"
-          alert-motion-permission-button-text="No Problem"
-          alert-box-width="290px"
-          alert-box-height="182px"
-          alert-box-font-size="24px"
-
-          ui-background-color="#283747"
-          ui-text-color="#00FFFF"
-          ui-portrait-text="This experience is optimised for portrait display only"
-          desktop-logo-src="./images/test_desktop_logo.png"
-          desktop-logo-width="108px"
-          desktop-logo-height="30px"
-          issue-img-src="./images/test_issue_img.png"
-          issue-img-width="116px"
-          issue-img-height="116px"
-          show-guide-view="true"></script>
-
-        <style>
-            #renderCanvas {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100vw;
-              height: 100vh;
-              touch-action: none;
-            }
-        </style>
-    </head>
 <body>
-    <canvas id="renderCanvas"></canvas>
-    <script>
-        var canvas = document.getElementById("renderCanvas");
+  <div class="g-recaptcha" data-sitekey="6LeAzDseAAAAAGHF8yxcRSruEl5tVRAB1na5umvZ" data-callback="reCaptcha"
+    data-size="invisible"></div>
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas" width=960 height=600></canvas>
+    <div id="unity-loading-bar">
+      <div id="unity-logo"></div>
+      <div id="unity-progress-bar-empty">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+    </div>
+    <div id="unity-warning"> </div>
+    <div id="unity-footer">
+      <div id="unity-webgl-logo"></div>
+      <div id="unity-fullscreen-button"></div>
+      <div id="unity-build-title">ethermon-ar</div>
+    </div>
+  </div>
+  <script>
+    var container = document.querySelector("#unity-container");
+    var canvas = document.querySelector("#unity-canvas");
+    var loadingBar = document.querySelector("#unity-loading-bar");
+    var progressBarFull = document.querySelector("#unity-progress-bar-full");
+    var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+    var warningBanner = document.querySelector("#unity-warning");
 
-        var engine = null;
-        var sceneToRender = null;
-        var webarStage = null;
-        var scaleByFactor = function(obj, factor) {
-            obj.scaling.x = obj.scaling.x * factor;
-            obj.scaling.y = obj.scaling.y * factor;
-            obj.scaling.z = obj.scaling.z * factor;
-        }
+    // Shows a temporary message banner/ribbon for a few seconds, or
+    // a permanent error message on top of the canvas if type=='error'.
+    // If type=='warning', a yellow highlight color is used.
+    // Modify or remove this function to customize the visually presented
+    // way that non-critical warnings and error messages are presented to the
+    // user.
+    function unityShowBanner(msg, type) {
+      function updateBannerVisibility() {
+        warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+      }
+      var div = document.createElement('div');
+      div.innerHTML = msg;
+      warningBanner.appendChild(div);
+      if (type == 'error') div.style = 'background: red; padding: 10px;';
+      else {
+        if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+        setTimeout(function () {
+          warningBanner.removeChild(div);
+          updateBannerVisibility();
+        }, 5000);
+      }
+      updateBannerVisibility();
+    }
 
-        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
-        var createScene = function () {
-            var scene = new BABYLON.Scene(engine);
-            scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./models/oscar_trophy.glb", scene);
+    var buildUrl = "Build";
+    var loaderUrl = buildUrl + "/Test.loader.js";
+    var config = {
+      dataUrl: buildUrl + "/Test.data",
+      frameworkUrl: buildUrl + "/Test.framework.js",
+      codeUrl: buildUrl + "/Test.wasm",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "DefaultCompany",
+      productName: "ethermon-ar",
+      productVersion: "1.0",
+      showBanner: unityShowBanner,
+    };
 
-            var camera = new BABYLON.UniversalCamera("camera1", new BABYLON.Vector3(0, 0, 0), scene);
+    // By default Unity keeps WebGL canvas render target size matched with
+    // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+    // Set this to false if you want to decouple this synchronization from
+    // happening inside the engine, and you would instead like to size up
+    // the canvas DOM size and WebGL render target sizes yourself.
+    // config.matchWebGLToCanvasSize = false;
 
-            var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(5, 10, -2), scene);
-            light.intensity = 0.7;
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      // Mobile device style: fill the whole browser client area with the game canvas:
 
-            // Create an empty webarStage mesh. Models/meshes appended as a children to this webarStage mesh will be displayed on the surface.
-            webarStage = new BABYLON.Mesh("webarStage", scene);
+      var meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+      document.getElementsByTagName('head')[0].appendChild(meta);
+      container.className = "unity-mobile";
 
-            // Create a time varying PBR material for the base cylinder mesh
-            var pbr = new BABYLON.PBRMaterial("pbr", scene);
-            pbr.metallic = 0.0;
-            pbr.roughness = 0;
-            pbr.subSurface.isRefractionEnabled = true;
-            pbr.subSurface.indexOfRefraction = 1.5;
-            pbr.subSurface.tintColor = new BABYLON.Color3(0.5, 0, 0);
-            var a = 0;
-            scene.beforeRender = () => {
-                a += 0.05;
-                pbr.subSurface.tintColor.g = Math.cos(a) * 0.5 + 0.5;
-                pbr.subSurface.tintColor.b = pbr.subSurface.tintColor.g;
-            }
+      // To lower canvas resolution on mobile devices to gain some
+      // performance, uncomment the following line:
+      // config.devicePixelRatio = 1;
 
-            // Create primitive shape using mesh builder and set webarStage as its parent so that it appears on the surface
-            var cylinder = BABYLON.MeshBuilder.CreateCylinder("cylinder", {height: 0.5, diameterTop: 1, diameterBottom: 1, tessellation: 128}, scene);
-            cylinder.material = pbr;
-            cylinder.position.y = 0.125;
-            cylinder.position.z = -0.075;
-            cylinder.setParent(webarStage);
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
 
-            // Start spark and smoke particles
-            startParticles(scene, webarStage);
+      unityShowBanner('WebGL builds are not supported on mobile devices.');
+    } else {
+      // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
 
-            // Import a gltf model to the scene and scale appropriately. No need to set the parent to webarStage mesh.
-            // All gltf models imported to the scene are created under __root__ node by babylon.
-            // After the complete scene is ready, it is models under __root_ node are moved to webarStage mesh
-            // to appear on the surface
-            BABYLON.SceneLoader.ImportMesh(['Object_2'], "./models/", "oscar_trophy.glb", scene, function (meshes, particleSystems, skeletons) {
-                let xQuat = new BABYLON.Quaternion();
-                BABYLON.Quaternion.FromEulerAnglesToRef(Math.PI / 2, 0, 0, xQuat);
+      canvas.style.width = "960px";
+      canvas.style.height = "600px";
+    }
 
-                for (mesh of meshes) {
-                    if (mesh.name !== '__root__') {
-                        // Move the loaded models to webarStage
-                        mesh.setParent(webarStage);
-                        mesh.rotationQuaternion.multiplyInPlace(xQuat);
+    loadingBar.style.display = "block";
+    window.reCaptcha = function () {
+      console.log('recaptcha ran');
+    }
 
-                        scaleByFactor(mesh, 0.0375);
-                    }
-                }
-            });
-
-            // Pass babylon canvas, scene, camera and webarStage mesh to WebarSdk to initialize surface tracking
-            WEBARSDK.InitBabylonJs(canvas, scene, camera, webarStage);
-
-            return scene;
+    var script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = () => {
+      createUnityInstance(canvas, config, (progress) => {
+        progressBarFull.style.width = 100 * progress + "%";
+      }).then((unityInstance) => {
+        window.isOnMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        window.unityInstance = unityInstance;
+        loadingBar.style.display = "none";
+        fullscreenButton.onclick = () => {
+          unityInstance.SetFullscreen(1);
         };
 
-        var sparksystem = null;
-        var smokesystem = null;
+        setTimeout(function () {
+          const obj = {
+            type: 'auth',
+            id: '0xd00faF7c2a837DC457389758Ea1271aE6256dc45' + Math.floor(Math.random() * 10),//localStorage.getItem("address"), //Here will come the wallet address.
+            apiKey: 'DtGyLUdpqSMQsEt0T6ShtPDx',
+            //usersPerRoom: 2,
+            class_name: 'Player',//localStorage.getItem("class_name"),
+            userid: '0xd00faF7c2a837DC457389758Ea1271aE6256dc45' + Math.floor(Math.random() * 10)//localStorage.getItem("token")
+          };
+          if (window.isOnMobile) {
+            //alert("Ok");
+            window.unityInstance.SendMessage("SIO", "GetIsOnMobile", "true");
+          }
+          const monCollection = {
+            0: [
+              { "name": "Chulember", "classId": 10, "qunatity": 2 },
+              { "name": "Elekitt", "classId": 224, "qunatity": 2 },
+              { "name": "Hambrisk", "classId": 227, "quantity": 2 },
+              { "name": "Snobbit", "classId": 235, "qunatity": 2 },
+              { "name": "Kyari", "classId": 27, "qunatity": 2 }],
+            1: [
+              { "name": "Chulember", "classId": 10, "qunatity": 2 },
+              { "name": "Elekitt", "classId": 224, "qunatity": 2 },
+              { "name": "Hambrisk", "classId": 227, "quantity": 2 },
+              { "name": "Snobbit", "classId": 235, "qunatity": 2 },
+              { "name": "Kyari", "classId": 27, "qunatity": 2 }]
+          }
+          window.unityInstance.SendMessage("SIO", "MonsSelection", JSON.stringify(monCollection));
+          window.unityInstance.SendMessage("SIO", "Login", JSON.stringify(obj));
+        }, 5000);
+      }).catch((message) => {
+        alert(message);
+      });
+    };
+    document.body.appendChild(script);
 
-        var startParticles = function (scene, fountain) {
-            let sphereSpark = BABYLON.MeshBuilder.CreateSphere("sphereSpark", {diameter: 0.4, segments: 32}, scene);
-            sphereSpark.isVisible = false;
-            sphereSpark.setParent(fountain);
-            BABYLON.ParticleHelper.ParseFromFileAsync(null, "./models/spark_particles.json", scene, false).then(system => {
-                sparksystem = system;
-                system.emitter = sphereSpark;
-            });
-            let sphereSmoke = BABYLON.MeshBuilder.CreateSphere("sphereSmoke", {diameter: 1.9, segments: 32}, scene);
-            sphereSmoke.isVisible = false;
-            sphereSmoke.setParent(fountain);
-            BABYLON.ParticleHelper.ParseFromFileAsync(null, "./models/smoke_particles.json", scene, false).then(system => {
-                smokesystem = system;
-                system.emitter = sphereSmoke;
-            });
-        };
-
-        window.initFunction = async function() {
-            var asyncEngineCreation = async function() {
-                try {
-                    return createDefaultEngine();
-                } catch(e) {
-                console.log("the available createEngine function failed. Creating the default engine instead");
-                    return createDefaultEngine();
-                }
-            }
-
-            window.engine = await asyncEngineCreation();
-            if (!engine) throw 'engine should not be null.';
-            window.scene = createScene();
-        };
-
-        initFunction().then(() => {
-            sceneToRender = window.scene;
-            sceneToRender.executeWhenReady(function () {
-                engine.runRenderLoop(function () {
-                    if (sceneToRender && sceneToRender.activeCamera) {
-                        sceneToRender.render();
-                    }
-                });
-            });
-        });
-
-        window.addEventListener("resize", function () {
-            engine.resize();
-        });
-
-        WEBARSDK.SetStageReadyCallback(() => {
-            console.info('Stage is ready now!!!');
-
-            // Start spark and smoke particles
-            var toggleCounter = 0;
-            setInterval(() => {
-                console.log('Restart spark');
-
-                if (toggleCounter % 2 === 0) {
-                    if (sparksystem !== null) {
-                        sparksystem.stop();
-                        sparksystem.reset();
-                        sparksystem.start()
-                    }
-                }
-                else {
-                    if (smokesystem !== null) {
-                        smokesystem.stop();
-                        smokesystem.reset();
-                        smokesystem.start();
-                    }
-                }
-
-                ++toggleCounter;
-            },
-            3000);
-        });
-
-    </script>
+    window.onblur = function () {
+      console.log("Loose focus");
+    };
+  </script>
 </body>
+
 </html>
